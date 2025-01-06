@@ -1,4 +1,4 @@
-package com.example.epubreader.domain
+package com.example.epubreader.domain.model
 
 import android.os.Parcelable
 import androidx.annotation.Keep

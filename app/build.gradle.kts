@@ -9,7 +9,7 @@ plugins {
 
 android {
     namespace = "com.example.epubreader"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.example.epubreader"
@@ -80,5 +80,14 @@ dependencies {
     implementation(libs.navigation.compose)
 
     // EPUB Parser
-    implementation("com.github.psiegman:epublib-core:3.1")
+    implementation(libs.xmlpull)
+    implementation(libs.json)
+    implementation(libs.kxml2)
+
+    implementation (libs.kotlinx.serialization.json)
+
+    implementation(libs.jsoup)
+    implementation(libs.slf4j.android)
+    implementation(libs.htmlcleaner)
+
 }

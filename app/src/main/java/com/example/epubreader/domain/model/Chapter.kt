@@ -1,4 +1,4 @@
-package com.example.epubreader.domain
+package com.example.epubreader.domain.model
 
 import android.os.Parcelable
 import androidx.annotation.Keep
@@ -6,9 +6,8 @@ import kotlinx.parcelize.Parcelize
 
 @Keep
 @Parcelize
-data class EpubBooks(
+data class Chapter(
     val id: String,
     val title: String,
-    val chapters: List<Chapter>,
-    val currentPosition: ReadingPosition
+    val content: String
 ) : Parcelable
