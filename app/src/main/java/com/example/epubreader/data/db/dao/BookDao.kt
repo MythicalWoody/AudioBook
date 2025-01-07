@@ -8,6 +8,7 @@ import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Update
 import com.example.epubreader.data.db.entity.BookEntity
+import com.example.epubreader.data.model.BookReadingStats
 import com.example.epubreader.data.model.BookWithChapterCount
 import com.example.epubreader.data.model.BookWithProgress
 import com.example.epubreader.data.model.DailyReadingStats
@@ -54,7 +55,7 @@ interface BookDao {
         WHERE bh.timestamp >= :startTime
         GROUP BY b.id
     """)
-    fun getReadingStats(startTime: Long): Flow<List<DailyReadingStats>>
+    fun getReadingStats(startTime: Long): Flow<List<BookReadingStats>>
 
     // Recently Read Books with Progress
     @Transaction

@@ -46,7 +46,7 @@ android {
 }
 
 dependencies {
-
+    // AndroidX and Compose
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -55,17 +55,10 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
-    androidTestImplementation(platform(libs.androidx.compose.bom))
-    androidTestImplementation(libs.androidx.ui.test.junit4)
-    debugImplementation(libs.androidx.ui.tooling)
-    debugImplementation(libs.androidx.ui.test.manifest)
 
     // Hilt
     implementation(libs.hilt.android)
-    kaptAndroidTest(libs.hilt.compiler)
+    kapt(libs.hilt.compiler)
     implementation(libs.hilt.navigation.compose)
 
     // Coroutines
@@ -79,15 +72,21 @@ dependencies {
     // Navigation
     implementation(libs.navigation.compose)
 
-    // EPUB Parser
-    implementation(libs.xmlpull)
+    // EPUB and XML Parsing
+    implementation(libs.kxml2)  // Keep only kxml2 for XML parsing
     implementation(libs.json)
-    implementation(libs.kxml2)
-
-    implementation (libs.kotlinx.serialization.json)
-
     implementation(libs.jsoup)
     implementation(libs.slf4j.android)
     implementation(libs.htmlcleaner)
+    implementation(libs.kotlinx.serialization.json)
 
+    // Testing
+    testImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.espresso.core)
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.ui.test.junit4)
+    debugImplementation(libs.androidx.ui.tooling)
+    debugImplementation(libs.androidx.ui.test.manifest)
+    kaptAndroidTest(libs.hilt.compiler)
 }
