@@ -26,18 +26,6 @@ class BookMapper @Inject constructor() {
         )
     }
 
-    fun mapToBookEntity(book: EpubBooks, filePath: String): BookEntity {
-        return BookEntity(
-            id = book.id,
-            title = book.title,
-            filePath = filePath,
-            lastReadChapterIndex = book.currentPosition.chapterIndex,
-            lastReadPosition = book.currentPosition.textPosition,
-            dateAdded = book.dateAdded.time,
-            lastReadDate = book.lastReadDate.time
-        )
-    }
-
     fun mapChapterToEntity(chapter: Chapter, bookId: String, index: Int): ChapterEntity {
         return ChapterEntity(
             id = UUID.randomUUID().toString(),
