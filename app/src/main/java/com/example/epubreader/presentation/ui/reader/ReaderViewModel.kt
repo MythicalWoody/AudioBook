@@ -2,8 +2,8 @@ package com.example.epubreader.presentation.ui.reader
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.epubreader.domain.ReadBookUseCase
-import com.example.epubreader.domain.UpdateReadingPositionUseCase
+import com.example.epubreader.domain.usecase.interfaces.ReadBookUseCase
+import com.example.epubreader.domain.usecase.interfaces.UpdateReadingPositionUseCase
 import com.example.epubreader.domain.model.EpubBooks
 import com.example.epubreader.domain.model.ReadingPosition
 import com.example.epubreader.presentation.ui.reader.components.TextToSpeechController
