@@ -6,15 +6,18 @@ import com.example.epubreader.common.exceptions.BookNotFoundException
 import com.example.epubreader.data.db.dao.BookDao
 import com.example.epubreader.data.db.dao.BookmarkDao
 import com.example.epubreader.data.db.dao.ChapterDao
+import com.example.epubreader.data.db.dao.ReadingHistoryDao
 import com.example.epubreader.data.db.entity.BookEntity
 import com.example.epubreader.data.db.entity.BookmarkEntity
 import com.example.epubreader.data.db.entity.ChapterEntity
+import com.example.epubreader.data.db.entity.ReadingHistoryEntity
 import com.example.epubreader.data.mapper.BookMapper
 import com.example.epubreader.data.utils.EpubParser
 import com.example.epubreader.domain.model.Bookmark
 import com.example.epubreader.domain.repository.BookRepository
 import com.example.epubreader.domain.model.EpubBooks
 import com.example.epubreader.domain.model.ReadingPosition
+import com.example.epubreader.domain.model.ReadingStatistics
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
@@ -27,6 +30,7 @@ class BookRepositoryImpl @Inject constructor(
     private val bookDao: BookDao,
     private val chapterDao: ChapterDao,
     private val bookmarkDao: BookmarkDao,
+    private val readingHistoryDao: ReadingHistoryDao,
     private val epubParser: EpubParser,
     private val bookMapper: BookMapper
 ) : BookRepository {
@@ -142,4 +146,36 @@ class BookRepositoryImpl @Inject constructor(
                 bookMapper.mapToEntity(bookWithProgress.book, chapters)
             }
         }
+
+    override suspend fun getReadingStatistics(bookId: String): ReadingStatistics = 
+        withContext(Dispatchers.IO) {
+            val totalReadingTime = readingHistoryDao.getTotalReadingTime(bookId) ?: 0L
+            val totalPagesRead = readingHistoryDao.getTotalPagesRead(bookId) ?: 0
+            val booksRead = readingHistoryDao.getCompletedBooksCount() ?: 0
+            
+            ReadingStatistics(
+                totalBooksRead = booksRead,
+                totalPagesRead = totalPagesRead,
+                totalReadingTime = totalReadingTime
+            )
+        }
+
+    suspend fun trackReadingSession(
+        bookId: String, 
+        duration: Long,
+        pagesRead: Int,
+        readingSpeed: Float,
+        chapterIndex: Int
+    ) = withContext(Dispatchers.IO) {
+        readingHistoryDao.insertReadingSession(
+            ReadingHistoryEntity(
+                bookId = bookId,
+                timestamp = System.currentTimeMillis(),
+                duration = duration,
+                pagesRead = pagesRead,
+                readingSpeed = readingSpeed,
+                chapterIndex = chapterIndex
+            )
+        )
+    }
 }
