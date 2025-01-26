@@ -4,6 +4,8 @@ import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.example.epubreader.data.model.ReadingPreferences
+import com.example.epubreader.data.model.TextAlignment
+import com.example.epubreader.data.model.Theme
 
 @Entity(
     tableName = "books",
@@ -20,6 +22,10 @@ data class BookEntity(
     val filePath: String,
     val lastReadChapterIndex: Int = 0,
     val lastReadPosition: Int = 0,
+    val readingPreferences: ReadingPreferences = ReadingPreferences(
+        theme = Theme.LIGHT,
+        textAlignment = TextAlignment.JUSTIFY
+    ),
     val dateAdded: Long = System.currentTimeMillis(),
     val lastReadDate: Long = System.currentTimeMillis()
 )
