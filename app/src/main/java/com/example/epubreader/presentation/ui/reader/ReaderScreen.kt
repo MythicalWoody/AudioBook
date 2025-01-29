@@ -42,10 +42,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.epubreader.R
 import com.example.epubreader.data.model.ReadingPreferences
 import com.example.epubreader.data.model.TextAlignment
 import com.example.epubreader.data.model.Theme
@@ -84,7 +86,7 @@ fun ReaderScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(
-                            top = if (showControls) 64.dp else 0.dp,
+                            top = if (showControls) 120.dp else 0.dp,
                             bottom = if (showControls) 64.dp else 0.dp
                         )
                         .pointerInput(Unit) {
@@ -210,7 +212,7 @@ fun ReaderScreen(
 
                             // Area 8: Speed control
                             IconButton(onClick = { /* Show speed options */ }) {
-                                Icon(Icons.Default.Add, "Speed") //TODO add actual speed icon
+                                Icon(painter = painterResource(R.drawable.speech_speed_ic), "Speed") //TODO add actual speed icon
                             }
                         }
                     }
@@ -312,9 +314,29 @@ fun ReaderScreenContentPreview() {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(
-                    top = if (showControls) 64.dp else 0.dp,
-                    bottom = if (showControls) 64.dp else 0.dp
+                    top = if (showControls) 120.dp else 35.dp,
+                    bottom = if (showControls) 120.dp else 10.dp
                 )
+                .pointerInput(Unit) {
+                    detectTapGestures (
+                        onTap = { offset ->
+                            when {
+                                offset.x < size.width * 0.3f -> {
+                                    // Previous page (area 9)
+                                    // Handle previous page
+                                }
+                                offset.x > size.width * 0.7f -> {
+                                    // Next page (area 10)
+                                    // Handle next page
+                                }
+                                else -> {
+                                    // Toggle controls
+                                    showControls = !showControls
+                                }
+                            }
+                        }
+                    )
+                }
         ) {
             Text(
                 text = sampleChapters[0].content,
@@ -407,7 +429,7 @@ fun ReaderScreenContentPreview() {
                     }
 
                     IconButton(onClick = { }) {
-                        Icon(Icons.Default.Add, "Speed")
+                        Icon(painter = painterResource(R.drawable.speech_speed_ic), "Speed")
                     }
                 }
             }
