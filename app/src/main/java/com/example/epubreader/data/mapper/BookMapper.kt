@@ -3,6 +3,8 @@ package com.example.epubreader.data.mapper
 import com.example.epubreader.data.db.entity.BookEntity
 import com.example.epubreader.data.db.entity.ChapterEntity
 import com.example.epubreader.data.model.ReadingPreferences
+import com.example.epubreader.data.model.TextAlignment
+import com.example.epubreader.data.model.Theme
 import com.example.epubreader.domain.model.Chapter
 import com.example.epubreader.domain.model.EpubBooks
 import com.example.epubreader.domain.model.ReadingPosition
@@ -20,21 +22,12 @@ class BookMapper @Inject constructor() {
                 chapterIndex = bookEntity.lastReadChapterIndex,
                 textPosition = bookEntity.lastReadPosition
             ),
-            readingPreferences = ReadingPreferences(),
+            readingPreferences = ReadingPreferences(
+                theme = Theme.DARK,
+                textAlignment = TextAlignment.JUSTIFY
+            ),
             dateAdded = Date(bookEntity.dateAdded),
             lastReadDate = Date(bookEntity.lastReadDate)
-        )
-    }
-
-    fun mapToBookEntity(book: EpubBooks, filePath: String): BookEntity {
-        return BookEntity(
-            id = book.id,
-            title = book.title,
-            filePath = filePath,
-            lastReadChapterIndex = book.currentPosition.chapterIndex,
-            lastReadPosition = book.currentPosition.textPosition,
-            dateAdded = book.dateAdded.time,
-            lastReadDate = book.lastReadDate.time
         )
     }
 

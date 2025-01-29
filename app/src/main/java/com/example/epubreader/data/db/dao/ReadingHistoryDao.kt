@@ -47,4 +47,18 @@ interface ReadingHistoryDao {
         ORDER BY date DESC
     """)
     fun getReadingStatsByDay(startTime: Long): Flow<List<DailyReadingStats>>
+
+    @Query("""
+        SELECT SUM(pagesRead) 
+        FROM book_reading_history 
+        WHERE bookId = :bookId
+    """)
+    suspend fun getTotalPagesRead(bookId: String): Int?
+
+    @Query("""
+        SELECT COUNT(DISTINCT bookId) 
+        FROM book_reading_history 
+        WHERE pagesRead > 0
+    """)
+    suspend fun getCompletedBooksCount(): Int?
 }

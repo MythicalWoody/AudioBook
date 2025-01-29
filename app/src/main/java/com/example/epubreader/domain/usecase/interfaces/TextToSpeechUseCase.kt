@@ -1,4 +1,4 @@
-package com.example.epubreader.domain
+package com.example.epubreader.domain.usecase.interfaces
 
 interface TextToSpeechUseCase {
     suspend fun speak(text: String, speechRate: Float): Result<Unit>

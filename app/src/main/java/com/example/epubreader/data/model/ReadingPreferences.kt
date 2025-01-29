@@ -1,17 +1,17 @@
 package com.example.epubreader.data.model
 
-import android.content.res.Resources
-import android.content.res.Resources.Theme
-import android.os.Parcelable
 import androidx.annotation.Keep
-import androidx.compose.ui.text.style.TextAlign
-import kotlinx.android.parcel.Parcelize
 
 @Keep
 data class ReadingPreferences(
-    val fontSize: Int = 16,
-    val fontFamily: String = "default",
+    val theme: Theme,
+    val textAlignment: TextAlignment,
+    val fontSize: Float = 16f,
+    val fontFamily: String = "sans-serif",
     val lineSpacing: Float = 1.5f,
-    val textAlignment: TextAlign = TextAlign.Justify,
-    val theme: Theme = Resources.getSystem().newTheme().apply { applyStyle(android.R.style.Theme_Material_Light, true) }
+    val paragraphSpacing: Float = 2.0f,
+    val marginSize: Float = 16f,
+    val brightness: Float = 1.0f,
+    val isNightMode: Boolean = false,
+    val keepScreenOn: Boolean = true
 )
