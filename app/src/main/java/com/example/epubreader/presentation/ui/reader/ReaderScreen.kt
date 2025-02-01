@@ -212,7 +212,7 @@ fun ReaderScreen(
 
                             // Area 8: Speed control
                             IconButton(onClick = { /* Show speed options */ }) {
-                                Icon(painter = painterResource(R.drawable.speech_speed_ic), "Speed") //TODO add actual speed icon
+                                Icon(painter = painterResource(R.drawable.speech_speed_ic), "Speed")
                             }
                         }
                     }
