@@ -57,6 +57,7 @@ android {
 
 dependencies {
     // AndroidX and Compose
+    implementation(libs.javapoet)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -99,4 +100,15 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
     kaptAndroidTest(libs.hilt.compiler)
+}
+
+hilt {
+    enableAggregatingTask = true
+}
+
+// App-level build.gradle
+configurations.all {
+    resolutionStrategy {
+        force ("com.squareup:javapoet:1.13.0") // Use a version compatible with Hilt
+    }
 }
