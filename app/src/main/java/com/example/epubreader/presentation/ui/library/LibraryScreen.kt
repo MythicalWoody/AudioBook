@@ -168,14 +168,20 @@ private fun ErrorState(
 private fun LibraryScreenPreview() {
     val previewViewModel = object : LibraryViewModel(
         object : GetRecentBooksUseCase {
-            override suspend fun execute() = MutableStateFlow(
+            override suspend fun execute(): StateFlow<List<EpubBooks>> = MutableStateFlow(
                 listOf(
                     EpubBooks(
                         id = "1",
                         title = "Sample Book 1",
                         chapters = listOf(),
                         currentPosition = ReadingPosition(0, 0),
-                        readingPreferences = ReadingPreferences(Theme.LIGHT, TextAlignment.JUSTIFY),
+                        readingPreferences = ReadingPreferences(
+                            fontSize = 16f,
+                            lineSpacing = 1.5f,
+                            fontFamily = "Default",
+                            theme = Theme.LIGHT,
+                            textAlignment = TextAlignment.JUSTIFY
+                        ),
                         dateAdded = Date(),
                         lastReadDate = Date()
                     ),
@@ -184,7 +190,13 @@ private fun LibraryScreenPreview() {
                         title = "Sample Book 2",
                         chapters = listOf(),
                         currentPosition = ReadingPosition(1, 50),
-                        readingPreferences = ReadingPreferences(Theme.LIGHT, TextAlignment.JUSTIFY),
+                        readingPreferences = ReadingPreferences(
+                            fontSize = 16f,
+                            lineSpacing = 1.5f,
+                            fontFamily = "Default",
+                            theme = Theme.LIGHT,
+                            textAlignment = TextAlignment.JUSTIFY
+                        ),
                         dateAdded = Date(),
                         lastReadDate = Date()
                     )
@@ -192,13 +204,15 @@ private fun LibraryScreenPreview() {
             ).asStateFlow()
         },
         object : SearchBooksUseCase {
-            override suspend fun execute(query: String) = MutableStateFlow(emptyList<EpubBooks>()).asStateFlow()
+            override suspend fun execute(query: String): StateFlow<List<EpubBooks>> = 
+                MutableStateFlow(emptyList())
         }
     ) {}
 
     LibraryScreen(
         onBookClick = {},
-        onImportBook = {}
+        onImportBook = {},
+        viewModel = previewViewModel
     )
 }
 
