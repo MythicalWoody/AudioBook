@@ -1,8 +1,13 @@
 package com.example.epubreader.data.model
 
+import android.os.Parcelable
 import androidx.annotation.Keep
+import kotlinx.parcelize.Parcelize
+import kotlinx.serialization.Serializable
 
 @Keep
+@Parcelize
+@Serializable
 data class ReadingPreferences(
     val theme: Theme,
     val textAlignment: TextAlignment,
@@ -14,4 +19,4 @@ data class ReadingPreferences(
     val brightness: Float = 1.0f,
     val isNightMode: Boolean = false,
     val keepScreenOn: Boolean = true
-)
+) : Parcelable

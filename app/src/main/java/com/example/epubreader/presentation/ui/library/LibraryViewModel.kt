@@ -5,6 +5,11 @@ import androidx.lifecycle.viewModelScope
 import com.example.epubreader.domain.model.EpubBooks
 import com.example.epubreader.domain.usecase.interfaces.GetRecentBooksUseCase
 import com.example.epubreader.domain.usecase.interfaces.SearchBooksUseCase
+import com.example.epubreader.domain.usecase.implementation.ImportBookUseCaseImpl
+import android.content.Context
+import android.net.Uri
+import com.example.epubreader.domain.model.ImportBookParams
+import com.example.epubreader.domain.usecase.interfaces.ImportBookUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,7 +26,8 @@ sealed class LibraryUiState {
 @HiltViewModel
 open class LibraryViewModel @Inject constructor(
     private val getRecentBooksUseCase: GetRecentBooksUseCase,
-    private val searchBooksUseCase: SearchBooksUseCase
+    private val searchBooksUseCase: SearchBooksUseCase,
+    private val importBookUseCase: ImportBookUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<LibraryUiState>(LibraryUiState.Loading)
@@ -49,20 +55,32 @@ open class LibraryViewModel @Inject constructor(
 
     fun searchBooks(query: String) {
         _searchQuery.value = query
-        if (query.isBlank()) {
-            loadBooks()
-            return
-        }
-
         viewModelScope.launch {
+            if (query.isBlank()) {
+                loadBooks()
+                return@launch
+            }
+            
             _uiState.value = LibraryUiState.Loading
             searchBooksUseCase.execute(query)
                 .catch { e ->
-                    _uiState.value = LibraryUiState.Error(e.message ?: "Search failed")
+                    _uiState.value = LibraryUiState.Error(e.message ?: "Unknown error occurred")
                 }
                 .collect { books ->
                     _uiState.value = LibraryUiState.Success(books)
                 }
+        }
+    }
+
+    fun importEpubBook(uri: Uri , context: Context) {
+        viewModelScope.launch {
+            try {
+                val importBookParams = ImportBookParams(uri, context)
+                importBookUseCase.execute(importBookParams)
+                loadBooks() // Refresh the book list after import
+            } catch (e: Exception) {
+                _uiState.value = LibraryUiState.Error("Failed to import EPUB: ${e.message}")
+            }
         }
     }
 }
