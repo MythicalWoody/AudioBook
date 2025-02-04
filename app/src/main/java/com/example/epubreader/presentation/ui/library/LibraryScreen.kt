@@ -44,13 +44,16 @@ import com.example.epubreader.data.model.Theme
 import com.example.epubreader.domain.model.EpubBooks
 import com.example.epubreader.domain.model.ImportBookParams
 import com.example.epubreader.domain.model.ReadingPosition
+import com.example.epubreader.domain.usecase.interfaces.GetAllBooksUseCase
 import com.example.epubreader.domain.usecase.interfaces.GetRecentBooksUseCase
 import com.example.epubreader.domain.usecase.interfaces.ImportBookUseCase
 import com.example.epubreader.domain.usecase.interfaces.SearchBooksUseCase
 import com.example.epubreader.presentation.components.BookCard
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flow
 import java.util.Date
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -213,9 +216,9 @@ private fun ErrorState(
 @Composable
 private fun LibraryScreenPreview() {
     val previewViewModel = object : LibraryViewModel(
-        object : GetRecentBooksUseCase {
-            override suspend fun execute(): StateFlow<List<EpubBooks>> = MutableStateFlow(
-                listOf(
+        object : GetAllBooksUseCase {
+            override suspend fun execute(): Flow<List<EpubBooks>> = flow {
+                emit(listOf(
                     EpubBooks(
                         id = "1",
                         title = "Sample Book 1",
@@ -246,17 +249,14 @@ private fun LibraryScreenPreview() {
                         dateAdded = Date(),
                         lastReadDate = Date()
                     )
-                )
-            ).asStateFlow()
+                ))
+            }
         },
         object : SearchBooksUseCase {
-            override suspend fun execute(query: String): StateFlow<List<EpubBooks>> = 
-                MutableStateFlow(emptyList())
+            override suspend fun execute(query: String): Flow<List<EpubBooks>> = flow { emit(emptyList()) }
         },
         object : ImportBookUseCase {
-            override suspend fun execute(params: ImportBookParams): String {
-                return ""
-            }
+            override suspend fun execute(params: ImportBookParams): String = ""
         }
     ) {}
 

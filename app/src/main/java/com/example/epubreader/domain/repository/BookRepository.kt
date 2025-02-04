@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.Flow
 interface BookRepository {
     // Book operations
     suspend fun getBook(bookId: String): EpubBooks
+    suspend fun getAllBooks(): Flow<List<EpubBooks>>
     suspend fun importBook(uri: Uri, context: Context): String
     suspend fun deleteBook(bookId: String)
     fun searchBooks(query: String): Flow<List<EpubBooks>>

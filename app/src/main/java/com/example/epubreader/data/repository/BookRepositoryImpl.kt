@@ -33,6 +33,15 @@ class BookRepositoryImpl @Inject constructor(
     private val bookMapper: BookMapper
 ) : BookRepository {
 
+    override suspend fun getAllBooks(): Flow<List<EpubBooks>> {
+        return bookDao.getAllBooks().map { books ->
+            books.map { bookEntity ->
+                val chapters = chapterDao.getChaptersForBook(bookEntity.id)
+                bookMapper.mapToEntity(bookEntity, chapters)
+            }
+        }
+    }
+
     override suspend fun getBook(bookId: String): EpubBooks =
         withContext(Dispatchers.IO) {
             val bookEntity = bookDao.getBook(bookId)
