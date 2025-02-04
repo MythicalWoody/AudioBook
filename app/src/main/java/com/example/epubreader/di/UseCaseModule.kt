@@ -2,6 +2,7 @@ package com.example.epubreader.di
 
 import com.example.epubreader.domain.repository.BookRepository
 import com.example.epubreader.domain.usecase.implementation.AddBookmarkUseCaseImpl
+import com.example.epubreader.domain.usecase.implementation.GetAllBooksUseCaseImpl
 import com.example.epubreader.domain.usecase.implementation.GetBookmarksUseCaseImpl
 import com.example.epubreader.domain.usecase.implementation.GetReadingStatisticsUseCaseImpl
 import com.example.epubreader.domain.usecase.implementation.GetRecentBooksUseCaseImpl
@@ -11,6 +12,7 @@ import com.example.epubreader.domain.usecase.implementation.SearchBooksUseCaseIm
 import com.example.epubreader.domain.usecase.implementation.TextToSpeechUseCaseImpl
 import com.example.epubreader.domain.usecase.implementation.UpdateReadingPositionUseCaseImpl
 import com.example.epubreader.domain.usecase.interfaces.AddBookmarkUseCase
+import com.example.epubreader.domain.usecase.interfaces.GetAllBooksUseCase
 import com.example.epubreader.domain.usecase.interfaces.GetBookmarksUseCase
 import com.example.epubreader.domain.usecase.interfaces.GetReadingStatisticsUseCase
 import com.example.epubreader.domain.usecase.interfaces.GetRecentBooksUseCase
@@ -65,6 +67,12 @@ object UseCaseModule {
     fun provideSearchBooksUseCase(
         bookRepository: BookRepository
     ): SearchBooksUseCase = SearchBooksUseCaseImpl(bookRepository)
+
+    @Provides
+    @Singleton
+    fun provideGetAllBooksUseCase(
+        bookRepository: BookRepository
+    ): GetAllBooksUseCase = GetAllBooksUseCaseImpl(bookRepository)
 
     @Provides
     @Singleton

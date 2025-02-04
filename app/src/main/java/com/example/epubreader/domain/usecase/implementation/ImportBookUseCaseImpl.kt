@@ -11,8 +11,12 @@ class ImportBookUseCaseImpl @Inject constructor(
 ) : ImportBookUseCase {
     override suspend fun execute(params: ImportBookParams): String =
         try {
-            bookRepository.importBook(params.uri, params.context)
+            android.util.Log.d("ImportBookUseCase", "Starting book import process with URI: ${params.uri}")
+            val bookId = bookRepository.importBook(params.uri, params.context)
+            android.util.Log.d("ImportBookUseCase", "Successfully imported book with ID: $bookId")
+            bookId
         } catch (e: Exception) {
+            android.util.Log.e("ImportBookUseCase", "Failed to import book", e)
             throw BookReaderException.ImportError("Failed to import book: ${e.message}")
         }
 }

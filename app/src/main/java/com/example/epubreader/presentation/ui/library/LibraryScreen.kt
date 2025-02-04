@@ -1,17 +1,40 @@
 package com.example.epubreader.presentation.ui.library
 
-import androidx.compose.foundation.layout.*
+import android.app.Activity
+import android.content.Intent
+import android.util.Log
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -19,13 +42,18 @@ import com.example.epubreader.data.model.ReadingPreferences
 import com.example.epubreader.data.model.TextAlignment
 import com.example.epubreader.data.model.Theme
 import com.example.epubreader.domain.model.EpubBooks
+import com.example.epubreader.domain.model.ImportBookParams
 import com.example.epubreader.domain.model.ReadingPosition
+import com.example.epubreader.domain.usecase.interfaces.GetAllBooksUseCase
 import com.example.epubreader.domain.usecase.interfaces.GetRecentBooksUseCase
+import com.example.epubreader.domain.usecase.interfaces.ImportBookUseCase
 import com.example.epubreader.domain.usecase.interfaces.SearchBooksUseCase
 import com.example.epubreader.presentation.components.BookCard
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flow
 import java.util.Date
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -38,6 +66,26 @@ fun LibraryScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
+    val context = LocalContext.current
+
+    val pickFileLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            result.data?.data?.let { uri ->
+                // Import the selected EPUB file
+                viewModel.importEpubBook(uri, context)
+            }
+        }
+    }
+
+    fun launchFilePicker() {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "application/epub+zip"
+        }
+        pickFileLauncher.launch(intent)
+    }
 
     Scaffold(
         topBar = {
@@ -47,7 +95,7 @@ fun LibraryScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onImportBook) {
+            FloatingActionButton(onClick = { launchFilePicker() }) {
                 Icon(Icons.Default.Add, contentDescription = "Import Book")
             }
         }
@@ -147,6 +195,7 @@ private fun ErrorState(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    Log.d("Error state displayed:",message)
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -167,15 +216,21 @@ private fun ErrorState(
 @Composable
 private fun LibraryScreenPreview() {
     val previewViewModel = object : LibraryViewModel(
-        object : GetRecentBooksUseCase {
-            override suspend fun execute() = MutableStateFlow(
-                listOf(
+        object : GetAllBooksUseCase {
+            override suspend fun execute(): Flow<List<EpubBooks>> = flow {
+                emit(listOf(
                     EpubBooks(
                         id = "1",
                         title = "Sample Book 1",
                         chapters = listOf(),
                         currentPosition = ReadingPosition(0, 0),
-                        readingPreferences = ReadingPreferences(Theme.LIGHT, TextAlignment.JUSTIFY),
+                        readingPreferences = ReadingPreferences(
+                            fontSize = 16f,
+                            lineSpacing = 1.5f,
+                            fontFamily = "Default",
+                            theme = Theme.LIGHT,
+                            textAlignment = TextAlignment.JUSTIFY
+                        ),
                         dateAdded = Date(),
                         lastReadDate = Date()
                     ),
@@ -184,21 +239,31 @@ private fun LibraryScreenPreview() {
                         title = "Sample Book 2",
                         chapters = listOf(),
                         currentPosition = ReadingPosition(1, 50),
-                        readingPreferences = ReadingPreferences(Theme.LIGHT, TextAlignment.JUSTIFY),
+                        readingPreferences = ReadingPreferences(
+                            fontSize = 16f,
+                            lineSpacing = 1.5f,
+                            fontFamily = "Default",
+                            theme = Theme.LIGHT,
+                            textAlignment = TextAlignment.JUSTIFY
+                        ),
                         dateAdded = Date(),
                         lastReadDate = Date()
                     )
-                )
-            ).asStateFlow()
+                ))
+            }
         },
         object : SearchBooksUseCase {
-            override suspend fun execute(query: String) = MutableStateFlow(emptyList<EpubBooks>()).asStateFlow()
+            override suspend fun execute(query: String): Flow<List<EpubBooks>> = flow { emit(emptyList()) }
+        },
+        object : ImportBookUseCase {
+            override suspend fun execute(params: ImportBookParams): String = ""
         }
     ) {}
 
     LibraryScreen(
         onBookClick = {},
-        onImportBook = {}
+        onImportBook = {},
+        viewModel = previewViewModel
     )
 }
 

@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.hilt)
     id("kotlin-kapt")
     id("kotlin-parcelize")
+    id("org.jetbrains.kotlin.plugin.serialization") version "1.9.0"
 }
 
 android {
@@ -57,6 +58,7 @@ android {
 
 dependencies {
     // AndroidX and Compose
+    implementation(libs.javapoet)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -83,7 +85,11 @@ dependencies {
     implementation(libs.navigation.compose)
 
     // EPUB and XML Parsing
-    implementation(libs.kxml2)  // Keep only kxml2 for XML parsing
+    implementation(libs.epublib.core) {
+        exclude(group = "org.slf4j", module = "slf4j-simple")
+        exclude(group = "xmlpull", module = "xmlpull")
+    }
+    implementation(libs.kxml2)  // Required for epublib
     implementation(libs.json)
     implementation(libs.jsoup)
     implementation(libs.slf4j.android)
@@ -99,4 +105,15 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
     kaptAndroidTest(libs.hilt.compiler)
+}
+
+hilt {
+    enableAggregatingTask = true
+}
+
+// App-level build.gradle
+configurations.all {
+    resolutionStrategy {
+        force ("com.squareup:javapoet:1.13.0") // Use a version compatible with Hilt
+    }
 }

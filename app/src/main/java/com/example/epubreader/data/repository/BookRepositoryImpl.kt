@@ -2,6 +2,7 @@ package com.example.epubreader.data.repository
 
 import android.content.Context
 import android.net.Uri
+import android.util.Log
 import com.example.epubreader.common.exceptions.BookNotFoundException
 import com.example.epubreader.data.db.dao.*
 import com.example.epubreader.data.db.entity.*
@@ -32,6 +33,15 @@ class BookRepositoryImpl @Inject constructor(
     private val bookMapper: BookMapper
 ) : BookRepository {
 
+    override suspend fun getAllBooks(): Flow<List<EpubBooks>> {
+        return bookDao.getAllBooks().map { books ->
+            books.map { bookEntity ->
+                val chapters = chapterDao.getChaptersForBook(bookEntity.id)
+                bookMapper.mapToEntity(bookEntity, chapters)
+            }
+        }
+    }
+
     override suspend fun getBook(bookId: String): EpubBooks =
         withContext(Dispatchers.IO) {
             val bookEntity = bookDao.getBook(bookId)
@@ -56,31 +66,46 @@ class BookRepositoryImpl @Inject constructor(
         }
 
     override suspend fun importBook(uri: Uri, context: Context): String = withContext(Dispatchers.IO) {
-        val book = epubParser.parseBook(uri, context)
-        val bookId = UUID.randomUUID().toString()
+        Log.d("BookRepository1", "Starting book import in repository with URI: $uri")
+        
+        try {
+            val book = epubParser.parseBook(uri, context)
+            Log.d("BookRepository2", "Successfully parsed EPUB book: ${book.title}")
+            Log.d("BookRepository3", "Parsed chapters: ${book.chapters.size} with content lengths: ${book.chapters.map { it.content.length }}")
+            
+            val bookId = UUID.randomUUID().toString()
+            Log.d("BookRepository4", "Generated book ID: $bookId")
 
-        // Save book metadata
-        bookDao.insertBook(
-            BookEntity(
-                id = bookId,
-                title = book.title,
-                filePath = uri.toString()
+            // Save book metadata
+            bookDao.insertBook(
+                BookEntity(
+                    id = bookId,
+                    title = book.title,
+                    filePath = uri.toString()
+                )
             )
-        )
+            Log.d("BookRepository5", "Saved book metadata to database")
 
-        // Save chapters
-        val chapterEntities = book.chapters.mapIndexed { index, chapter ->
-            ChapterEntity(
-                id = UUID.randomUUID().toString(),
-                bookId = bookId,
-                title = chapter.title,
-                content = chapter.content,
-                indexInBook = index
-            )
+            // Save chapters
+            val chapterEntities = book.chapters.mapIndexed { index, chapter ->
+                ChapterEntity(
+                    id = UUID.randomUUID().toString(),
+                    bookId = bookId,
+                    title = chapter.title,
+                    content = chapter.content,
+                    indexInBook = index
+                )
+            }
+            Log.d("BookRepository6", "Created ${chapterEntities.size} chapter entities with content lengths: ${chapterEntities.map { it.content.length }}")
+            
+            chapterDao.insertChapters(chapterEntities)
+            Log.d("BookRepository7", "Successfully saved all chapters to database")
+
+            return@withContext bookId
+        } catch (e: Exception) {
+            android.util.Log.e("BookRepository8", "Error importing book", e)
+            throw e
         }
-        chapterDao.insertChapters(chapterEntities)
-
-        return@withContext bookId
     }
 
     override suspend fun getBookmarks(bookId: String): List<Bookmark> =
