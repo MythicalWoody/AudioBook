@@ -3,492 +3,243 @@ package com.example.epubreader.data.utils
 import android.content.Context
 import android.net.Uri
 import android.util.Log
-import org.xmlpull.v1.XmlPullParser
-import org.xmlpull.v1.XmlPullParserFactory
-import java.io.File
-import java.io.FileOutputStream
+import nl.siegmann.epublib.domain.Author
+import nl.siegmann.epublib.domain.Book
+import nl.siegmann.epublib.domain.Resource
+import nl.siegmann.epublib.epub.EpubReader
+import nl.siegmann.epublib.service.MediatypeService
 import java.io.IOException
-import java.io.InputStream
-import java.util.zip.ZipEntry
-import java.util.zip.ZipFile
+import java.nio.charset.Charset
 import javax.inject.Inject
 
 class EpubParser @Inject constructor() {
+    companion object {
+        private const val TAG = "EpubParser"
+        private const val XML_HEADER_SEARCH_LIMIT = 500
+    }
 
     fun parseBook(uri: Uri, context: Context): ParsedBook {
-        Log.d("EpubParser2", "Starting EPUB parsing for URI: $uri")
-
-        return context.contentResolver.openInputStream(uri)?.use { inputStream ->
-            val tempFile = createTempFile(inputStream)
-            ZipFile(tempFile).use { zip ->
-                parseEpubContents(zip).also {
-                    tempFile.delete()
-                    Log.d("EpubParser3", "Cleaned up temp file")
+        Log.d(TAG, "Starting to parse EPUB book from URI: $uri")
+        return try {
+            context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                Log.d(TAG, "Successfully opened input stream for URI: $uri")
+                val epubReader = EpubReader()
+                val book = try {
+                    Log.d(TAG, "Attempting to read EPUB content")
+                    epubReader.readEpub(inputStream)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error reading EPUB file: ${e.message}", e)
+                    throw EpubParseException("Failed to read EPUB file: ${e.message}", e)
                 }
+                
+                if (book == null) {
+                    Log.e(TAG, "EPUB reader returned null book")
+                    throw EpubParseException("EPUB reader returned null book", IllegalStateException())
+                }
+                
+                Log.d(TAG, "Successfully parsed EPUB book: ${book.title}")
+                convertToParsedBook(book)
+            } ?: throw IOException("Failed to open EPUB file: Content resolver returned null stream")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error parsing EPUB file", e)
+            when (e) {
+                is EpubParseException -> throw e
+                is IOException -> throw e
+                else -> throw EpubParseException("Failed to parse EPUB file: ${e.message}", e)
             }
-        } ?: throw IOException("Failed to open EPUB file")
+        }
     }
 
-    private fun createTempFile(inputStream: InputStream): File {
-        val tempFile = File.createTempFile("epub_", ".tmp")
-        FileOutputStream(tempFile).use { inputStream.copyTo(it) }
-        return tempFile
-    }
-
-    private fun parseEpubContents(zip: ZipFile): ParsedBook {
-        val containerEntry = zip.getEntry("META-INF/container.xml")
-            ?: throw IOException("Missing container.xml")
-
-        val opfPath = parseContainer(zip.getInputStream(containerEntry))
-        Log.d("EpubParser4", "OPF path: $opfPath")
-
-        // Fixed base path calculation
-        val basePath = opfPath.substringBeforeLast('/', "")
-        Log.d("EpubParser5", "Base path: '$basePath'")
-
-        val opfEntry = zip.getEntry(opfPath) ?: throw IOException("Missing OPF file")
-        val (metadata, manifest, spine, isEpub3) = parseOPF(zip.getInputStream(opfEntry))
-
-        val tocPath = getTocPath(manifest, metadata, isEpub3)
-        Log.d("EpubParser6", "TOC path: $tocPath")
-
+    private fun convertToParsedBook(book: Book): ParsedBook {
+        Log.d(TAG, "Converting Book to ParsedBook format")
         return ParsedBook(
-            title = metadata["title"] ?: "Untitled",
-            author = metadata["creator"] ?: "Unknown",
-            language = metadata["language"] ?: "en",
-            chapters = parseTableOfContents(zip, tocPath, basePath, isEpub3),
-            content = parseContent(zip, spine, manifest, basePath),
-            metadata = metadata,
-            mediaOverlays = parseMediaOverlays(zip, manifest, basePath),
-            fonts = parseFonts(manifest, basePath),
-            stylesheets = parseStylesheets(manifest, basePath),
-            isEpub3 = isEpub3
-        )
-    }
-
-    private fun parseContainer(input: InputStream): String {
-        val parser = createXmlParser(input)
-        while (parser.eventType != XmlPullParser.END_DOCUMENT) {
-            if (parser.eventType == XmlPullParser.START_TAG && parser.name == "rootfile") {
-                return parser.getAttributeValue(null, "full-path") ?: ""
-            }
-            parser.next()
-        }
-        throw IOException("No rootfile found in container.xml")
-    }
-
-    private fun parseOPF(input: InputStream): Quadruple<Map<String, String>, Map<String, String>, List<String>, Boolean> {
-        val parser = createXmlParser(input)
-        val metadata = mutableMapOf<String, String>()
-        val manifest = mutableMapOf<String, String>()
-        val spine = mutableListOf<String>()
-        var isEpub3 = false
-
-        while (parser.eventType != XmlPullParser.END_DOCUMENT) {
-            when {
-                parser.eventType == XmlPullParser.START_TAG -> when (parser.name) {
-                    "metadata" -> parseMetadata(parser, metadata)
-                    "manifest" -> parseManifest(parser, manifest)
-                    "spine" -> parseSpine(parser, spine)
-                    "package" -> isEpub3 = parser.getAttributeValue(null, "version") == "3.0"
-                }
-            }
-            parser.next()
-        }
-        return Quadruple(metadata, manifest, spine, isEpub3)
-    }
-
-    private fun parseMetadata(parser: XmlPullParser, metadata: MutableMap<String, String>) {
-        val dcNs = "http://purl.org/dc/elements/1.1/"
-        val opfNs = "http://www.idpf.org/2007/opf"
-
-        while (!(parser.eventType == XmlPullParser.END_TAG && parser.name == "metadata")) {
-            if (parser.eventType == XmlPullParser.START_TAG) {
-                when {
-                    parser.namespace == dcNs -> handleDcMetadata(parser, metadata)
-                    parser.namespace == opfNs && parser.name == "meta" -> handleOpfMeta(parser, metadata)
-                }
-            }
-            parser.next()
+            title = book.title ?: "Untitled",
+            author = getAuthors(book),
+            language = getLanguage(book),
+            chapters = getChaptersFromToc(book),
+            contentMap = extractContentMap(book),
+            metadata = extractMetadata(book),
+            mediaOverlays = emptyList(), // Requires custom implementation
+            fonts = getFonts(book),
+            stylesheets = getStylesheets(book),
+            isEpub3 = isEpub3(book)
+        ).also { parsedBook ->
+            Log.d(TAG, "Book conversion completed - Title: ${parsedBook.title}, Author: ${parsedBook.author}, Chapters: ${parsedBook.chapters.size}")
         }
     }
 
-    private fun handleDcMetadata(parser: XmlPullParser, metadata: MutableMap<String, String>) {
-        val tagName = parser.name.removePrefix("dc:")
-        val text = parser.nextText().trim()
-        if (text.isNotEmpty()) {
-            when (tagName) {
-                "creator" -> metadata.appendToKey("creator", text)
-                else -> metadata[tagName] = text
-            }
+    private fun getChaptersFromToc(book: Book): List<ParsedChapter> {
+        Log.d(TAG, "Extracting chapters from table of contents")
+        return book.tableOfContents.tocReferences.flatMap { tocRef ->
+            parseTocReference(tocRef, depth = 1)
+        }.also { chapters ->
+            Log.d(TAG, "Extracted ${chapters.size} chapters from table of contents")
         }
     }
 
-    private fun handleOpfMeta(parser: XmlPullParser, metadata: MutableMap<String, String>) {
-        val property = parser.getAttributeValue(null, "property")
-        val content = parser.getAttributeValue(null, "content")
-        if (property != null && content != null) {
-            metadata[property] = content
-        }
-    }
-
-    private fun parseManifest(parser: XmlPullParser, manifest: MutableMap<String, String>) {
-        while (!(parser.eventType == XmlPullParser.END_TAG && parser.name == "manifest")) {
-            if (parser.eventType == XmlPullParser.START_TAG && parser.name == "item") {
-                val id = parser.getAttributeValue(null, "id")
-                val href = parser.getAttributeValue(null, "href")
-                if (id != null && href != null) manifest[id] = href
-            }
-            parser.next()
-        }
-    }
-
-    private fun parseSpine(parser: XmlPullParser, spine: MutableList<String>) {
-        while (!(parser.eventType == XmlPullParser.END_TAG && parser.name == "spine")) {
-            if (parser.eventType == XmlPullParser.START_TAG && parser.name == "itemref") {
-                parser.getAttributeValue(null, "idref")?.let { spine.add(it) }
-            }
-            parser.next()
-        }
-    }
-
-    private fun getTocPath(manifest: Map<String, String>, metadata: Map<String, String>, isEpub3: Boolean): String {
-        val tocPath = when {
-            isEpub3 -> manifest["nav"] ?: "nav.xhtml"
-            else -> manifest[metadata["toc"] ?: "ncx"] ?: "toc.ncx"
-        }
-        Log.d("EpubParser7", "Resolved TOC path: $tocPath, isEpub3: $isEpub3")
-        Log.d("EpubParser8", "Available manifest entries: ${manifest.entries.joinToString()}")
-        Log.d("EpubParser9", "Available metadata entries: ${metadata.entries.joinToString()}")
-        return tocPath
-    }
-
-    private fun parseTableOfContents(zip: ZipFile, tocPath: String, basePath: String, isEpub3: Boolean): List<ParsedChapter> {
-        val fullTocPath = if (basePath.isNotEmpty()) "$basePath/$tocPath" else tocPath
-        Log.d("EpubParser10", "Looking for TOC file at: $fullTocPath")
-        
-        // Try multiple possible TOC file locations
-        val entry = zip.getEntry(fullTocPath) 
-            ?: zip.getEntry(tocPath)
-            ?: zip.getEntry(tocPath.toLowerCase())
-            ?: zip.getEntry("OEBPS/$tocPath")
-            ?: zip.getEntry("OPS/$tocPath")
-        
-        if (entry == null) {
-            Log.w("EpubParser11", "TOC file not found at paths: [$fullTocPath, $tocPath]")
-            Log.w("EpubParser12", "Available ZIP entries: ${zip.entries().toList().joinToString { it.name }}")
-            
-            // Fallback: Try to find any HTML files that might be chapters
-            val htmlFiles = zip.entries().toList()
-                .filter { it.name.endsWith(".html") || it.name.endsWith(".xhtml") }
-                .filterNot { it.name.contains("toc", ignoreCase = true) }
-                .sortedBy { it.name }
-            
-            if (htmlFiles.isNotEmpty()) {
-                Log.d("EpubParser13", "Using fallback chapter detection with ${htmlFiles.size} HTML files")
-                return htmlFiles.mapIndexed { index, file ->
-                    ParsedChapter(
-                        title = "Chapter ${index + 1}",
-                        content = "",
-                        path = file.name,
-                        subChapters = mutableListOf(),
-                        depth = 1
-                    )
-                }.also { chapters ->
-                    chapters.forEach { chapter ->
-                        loadChapterContent(zip, chapter, basePath)
-                    }
-                }
-            }
+    private fun parseTocReference(
+        tocRef: nl.siegmann.epublib.domain.TOCReference,
+        depth: Int
+    ): List<ParsedChapter> {
+        val resource = tocRef.resource
+        if (resource == null) {
+            Log.w(TAG, "Null resource found for TOC reference: ${tocRef.title}")
             return emptyList()
         }
-        
-        Log.d("EpubParser14", "Found TOC file at: ${entry.name}")
-        val chapters = zip.getInputStream(entry).use {
-            if (isEpub3) parseEpub3Nav(it, basePath) else parseEpub2Toc(it)
+
+        Log.d(TAG, "Parsing TOC reference - Title: ${tocRef.title}, Depth: $depth")
+        val chapter = ParsedChapter(
+            title = tocRef.title,
+            contentPath = resource.href,
+            content = decodeResourceContent(resource),
+            depth = depth,
+            subChapters = mutableListOf()
+        )
+
+        val children = tocRef.children.flatMap { childRef ->
+            parseTocReference(childRef, depth + 1)
         }
-        
-        // Load chapter content
-        chapters.forEach { chapter ->
-            loadChapterContent(zip, chapter, basePath)
-            // Recursively load content for subchapters
-            chapter.subChapters.forEach { subChapter ->
-                loadChapterContent(zip, subChapter, basePath)
-            }
-        }
-        
-        return chapters
+
+        return listOf(chapter) + children
     }
 
-    private fun loadChapterContent(zip: ZipFile, chapter: ParsedChapter, basePath: String) {
-        if (chapter.path.isNotEmpty()) {
-            val fullPath = resolvePath(basePath, chapter.path)
-            Log.d("EpubParser14", "Attempting to load chapter content from path: $fullPath (original path: ${chapter.path})")
-            
-            // Try multiple possible paths
-            val entry = zip.getEntry(fullPath)
-                ?: zip.getEntry(chapter.path)
-                ?: zip.getEntry("OEBPS/${chapter.path}")
-                ?: zip.getEntry("OPS/${chapter.path}")
-                ?: zip.getEntry(chapter.path.toLowerCase())
-            
-            if (entry != null) {
-                try {
-                    chapter.content = zip.getInputStream(entry).use { stream ->
-                        stream.bufferedReader().readText()
+    private fun extractContentMap(book: Book): Map<String, String> {
+        Log.d(TAG, "Starting content map extraction")
+        return try {
+            book.resources.all
+                .filter { it.mediaType == MediatypeService.XHTML }
+                .associate { resource ->
+                    try {
+                        Log.d(TAG, "Processing content for resource: ${resource.href}")
+                        resource.href to decodeResourceContent(resource)
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to decode content for ${resource.href}, skipping", e)
+                        resource.href to ""
                     }
-                    Log.d("EpubParser15", "Successfully loaded content for chapter: ${chapter.title}, content length: ${chapter.content.length}")
-                } catch (e: Exception) {
-                    Log.e("EpubParser16", "Error reading chapter content for ${chapter.title}", e)
-                    chapter.content = "" // Set empty content on error
+                }.also { contentMap ->
+                    Log.d(TAG, "Content map extraction completed. Processed ${contentMap.size} resources")
                 }
-            } else {
-                Log.e("EpubParser17", "Chapter content not found at any path: $fullPath, ${chapter.path}, OEBPS/${chapter.path}, OPS/${chapter.path}")
-                Log.e("EpubParser18", "Available entries: ${zip.entries().toList().joinToString { it.name }}")
-                chapter.content = "" // Set empty content when file not found
-            }
-        } else {
-            Log.w("EpubParser19", "Empty path for chapter: ${chapter.title}")
-            chapter.content = "" // Set empty content for empty path
-        }
-        
-        // Recursively load content for subchapters
-        chapter.subChapters.forEach { subChapter ->
-            loadChapterContent(zip, subChapter, basePath)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to extract content map", e)
+            emptyMap()
         }
     }
 
-    private fun parseEpub3Nav(input: InputStream, basePath: String): List<ParsedChapter> {
-        val parser = createXmlParser(input)
-        val chapters = mutableListOf<ParsedChapter>()
-        var currentChapter: ParsedChapter? = null
-        var depth = 0
-
-        while (parser.eventType != XmlPullParser.END_DOCUMENT) {
-            when {
-                parser.eventType == XmlPullParser.START_TAG -> {
-                    when (parser.name) {
-                        "nav" -> {
-                            val type = parser.getAttributeValue("http://www.idpf.org/2007/ops", "type")
-                            if (type != "toc") {
-                                // Skip non-TOC nav elements
-                                parser.next()
-                                continue
-                            }
-                        }
-                        "li" -> depth++
-                        "a" -> {
-                            val href = parser.getAttributeValue(null, "href")?.let { resolvePath(basePath, it) }
-                            val title = parser.nextText().trim()
-                            if (title.isNotEmpty() && href != null) {
-                                currentChapter = ParsedChapter(title, "", href, mutableListOf(), depth)
-                            }
-                        }
-                    }
-                }
-                parser.eventType == XmlPullParser.END_TAG -> {
-                    when (parser.name) {
-                        "li" -> {
-                            currentChapter?.let { chapters.add(it) }
-                            currentChapter = null
-                            depth--
-                        }
-                    }
-                }
-            }
-            parser.next()
-        }
-        return buildChapterHierarchy(chapters)
-    }
-
-    private fun parseEpub2Toc(input: InputStream): List<ParsedChapter> {
-        val parser = createXmlParser(input)
-        val chapters = mutableListOf<ParsedChapter>()
-        var currentChapter: ParsedChapter? = null
-        var depth = 0
-        var currentTitle = ""
-        var currentSrc = ""
-
-        while (parser.eventType != XmlPullParser.END_DOCUMENT) {
-            when {
-                parser.eventType == XmlPullParser.START_TAG -> {
-                    when (parser.name) {
-                        "navPoint" -> {
-                            depth++
-                            currentTitle = ""
-                            currentSrc = ""
-                        }
-                        "text" -> currentTitle = parser.nextText().trim()
-                        "content" -> currentSrc = parser.getAttributeValue(null, "src") ?: ""
-                    }
-                }
-                parser.eventType == XmlPullParser.END_TAG -> {
-                    if (parser.name == "navPoint") {
-                        if (currentTitle.isNotEmpty() && currentSrc.isNotEmpty()) {
-                            currentChapter = ParsedChapter(currentTitle, "", currentSrc, mutableListOf(), depth)
-                            chapters.add(currentChapter!!)
-                        }
-                        depth--
-                    }
-                }
-            }
-            parser.next()
-        }
-        return buildChapterHierarchy(chapters)
-    }
-
-    private fun buildChapterHierarchy(flatChapters: List<ParsedChapter>): List<ParsedChapter> {
-        val hierarchy = mutableListOf<ParsedChapter>()
-        val stack = mutableListOf<ParsedChapter>()
-
-        for (chapter in flatChapters) {
-            while (stack.isNotEmpty() && stack.last().depth >= chapter.depth) {
-                stack.removeAt(stack.lastIndex)
+    private fun decodeResourceContent(resource: Resource): String {
+        return try {
+            if (resource.data.isEmpty()) {
+                Log.w(TAG, "Empty content for ${resource.href}")
+                return ""
             }
 
-            if (stack.isEmpty()) hierarchy.add(chapter)
-            else stack.last().subChapters.add(chapter)
+            val headerBytes = resource.data.copyOfRange(0, minOf(resource.data.size, XML_HEADER_SEARCH_LIMIT))
+            val xmlHeader = String(headerBytes, Charsets.UTF_8)
+            val encoding = determineEncodingFromXmlHeader(xmlHeader)
+            Log.d(TAG, "Detected encoding ${encoding} for resource ${resource.href}")
 
-            stack.add(chapter)
-        }
-        return hierarchy
-    }
-
-    private fun parseContent(zip: ZipFile, spine: List<String>, manifest: Map<String, String>, basePath: String): Map<String, String> {
-        return spine.associate { spineId ->
-            val href = manifest[spineId] ?: throw IOException("Missing manifest ID: $spineId")
-            val path = resolvePath(basePath, href)
-
-            Log.d("EpubParser19", "Attempting to load: $path")
-            val entry = zip.getEntry(path) ?: run {
-                val entries = zip.entries().toList().joinToString("\n") { it.name }
-                Log.e("EpubParser20", "Missing entry: $path\nAvailable entries:\n$entries")
-                throw IOException("Missing content file: $path")
+            try {
+                String(resource.data, Charset.forName(encoding))
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to decode with ${encoding}, falling back to UTF-8 for ${resource.href}", e)
+                String(resource.data, Charsets.UTF_8)
             }
-
-            val content = zip.getInputStream(entry).use {
-                try {
-                    it.bufferedReader().readText()
-                } catch (e: Exception) {
-                    Log.e("EpubParser21", "Error reading $path", e)
-                    throw IOException("Failed to read content from $path")
-                }
-            }
-
-            spineId to processContent(content, path, basePath)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to decode content for ${resource.href}", e)
+            ""
         }
     }
 
-    private fun processContent(content: String, currentPath: String, basePath: String): String {
-        return content.replace(Regex("""(href|src)=["']([^"']+)["']""")) { match ->
-            val (attr, value) = match.destructured
-            val resolved = resolvePath(currentPath, value, basePath)
-            Log.d("EpubParser22", "Resolved $value -> $resolved")
-            "$attr=\"$resolved\""
+    private fun determineEncodingFromXmlHeader(xmlHeader: String): String {
+        val pattern = """encoding\s*=\s*['"]([^'"]+)['"]""".toRegex()
+        return pattern.find(xmlHeader)?.groupValues?.get(1) ?: "UTF-8"
+    }
+
+    private fun getAuthors(book: Book): String {
+        Log.d(TAG, "Extracting authors from book metadata")
+        return book.metadata.authors
+            .joinToString { author ->
+                listOfNotNull(author.firstname, author.lastname)
+                    .joinToString(" ")
+            }.ifEmpty { "Unknown" }
+            .also { authors -> Log.d(TAG, "Found authors: $authors") }
+    }
+
+    private fun getLanguage(book: Book): String {
+        Log.d(TAG, "Extracting language from book metadata: ${book.metadata.language}")
+        return book.metadata.language
+    }
+
+    data class EpubMetadata(
+        val title: String,
+        val creators: MutableList<Author>,
+        val contributors: String,
+        val language: String,
+        val identifier: String?,
+        val publisher: String?,
+        val description: String?,
+        val rights: String?,
+        val format: String?,
+        val subjects: List<String>,
+        val type: String?
+    )
+
+    data class Creator(
+        val name: String,
+    )
+
+    private fun extractMetadata(book: Book): EpubMetadata {
+        Log.d(TAG, "Starting metadata extraction")
+        return EpubMetadata(
+            title = book.title ?: "Untitled",
+            creators = book.metadata.authors,
+            contributors = book.metadata.contributors.toString(),
+            language = book.metadata.language,
+            identifier = book.metadata.identifiers.firstOrNull()?.value,
+            publisher = book.metadata.publishers.firstOrNull(),
+            description = book.metadata.descriptions.firstOrNull(),
+            rights = book.metadata.rights.firstOrNull(),
+            format = book.metadata.format,
+            subjects = book.metadata.subjects,
+            type = book.metadata.types.firstOrNull()
+        ).also { metadata ->
+            Log.d(TAG, "Metadata extraction completed - Title: ${metadata.title}, Language: ${metadata.language}")
         }
     }
 
-    // Fixed path resolution logic
-    private fun resolvePath(currentPath: String, relative: String, basePath: String = ""): String {
-        // Remove fragment identifier if present
-        val pathWithoutFragment = relative.split('#')[0]
-        
-        val currentDir = currentPath.substringBeforeLast('/')
-        return when {
-            pathWithoutFragment.startsWith("/") -> "${basePath.removeSuffix("/")}/${pathWithoutFragment.removePrefix("/")}"
-            pathWithoutFragment.contains(":") -> pathWithoutFragment
-            else -> when {
-                currentDir.isEmpty() -> pathWithoutFragment
-                else -> "$currentDir/$pathWithoutFragment"
+    private fun getFonts(book: Book): List<FontResource> {
+        Log.d(TAG, "Extracting font resources")
+        return book.resources.getAll()
+            .filter {
+                it.mediaType == MediatypeService.TTF ||
+                        it.mediaType == MediatypeService.OPENTYPE ||
+                        it.mediaType == MediatypeService.WOFF
             }
-        }.replace("//", "/")
-            .replace("OEBPS/OEBPS/", "OEBPS/")
+            .map { FontResource(it.href, it.mediaType.name) }
+            .also { fonts -> Log.d(TAG, "Found ${fonts.size} font resources") }
     }
 
-    private fun parseMediaOverlays(zip: ZipFile, manifest: Map<String, String>, basePath: String): List<MediaOverlay> {
-        return manifest.filterValues { it.endsWith(".smil") }
-            .flatMap { (_, path) ->
-                zip.getEntry("$basePath/$path")?.let { entry ->
-                    parseSmilFile(zip.getInputStream(entry), basePath)
-                } ?: emptyList()
-            }
+    private fun isEpub3(book: Book): Boolean {
+        val isEpub3 = book.metadata.format?.startsWith("3") == true
+        Log.d(TAG, "EPUB version detection: ${if (isEpub3) "EPUB3" else "EPUB2"}")
+        return isEpub3
     }
 
-    private fun parseSmilFile(input: InputStream, basePath: String): List<MediaOverlay> {
-        val parser = createXmlParser(input)
-        val overlays = mutableListOf<MediaOverlay>()
-        var textRef = ""
-        var audioFile = ""
-        var clipBegin = ""
-
-        while (parser.eventType != XmlPullParser.END_DOCUMENT) {
-            when {
-                parser.eventType == XmlPullParser.START_TAG -> when (parser.name) {
-                    "text" -> textRef = parser.getAttributeValue(null, "src") ?: ""
-                    "audio" -> {
-                        audioFile = resolvePath(basePath, parser.getAttributeValue(null, "src") ?: "")
-                        clipBegin = parser.getAttributeValue(null, "clipBegin") ?: ""
-                    }
-                }
-                parser.eventType == XmlPullParser.END_TAG && parser.name == "par" -> {
-                    if (textRef.isNotEmpty() && audioFile.isNotEmpty()) {
-                        overlays.add(MediaOverlay(textRef, audioFile, clipBegin))
-                    }
-                    textRef = ""
-                    audioFile = ""
-                    clipBegin = ""
-                }
-            }
-            parser.next()
-        }
-        return overlays
-    }
-
-    private fun parseFonts(manifest: Map<String, String>, basePath: String): List<FontResource> {
-        return manifest.filterValues { it.endsWith(".ttf") || it.endsWith(".otf") || it.endsWith(".woff") }
-            .map { (_, path) ->
-                FontResource(
-                    path = resolvePath(basePath, path),
-                    mimeType = when {
-                        path.endsWith(".ttf") -> "font/ttf"
-                        path.endsWith(".otf") -> "font/otf"
-                        path.endsWith(".woff") -> "font/woff"
-                        else -> "application/octet-stream"
-                    }
-                )
-            }
-    }
-
-    private fun parseStylesheets(manifest: Map<String, String>, basePath: String): List<StyleResource> {
-        return manifest.filterValues { it.endsWith(".css") }
-            .map { (_, path) ->
-                StyleResource(resolvePath(basePath, path), "text/css")
-            }
-    }
-
-    private fun createXmlParser(input: InputStream): XmlPullParser {
-        return XmlPullParserFactory.newInstance().apply {
-            isNamespaceAware = true
-            setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, true)
-        }.newPullParser().apply {
-            setInput(input.reader())
-            nextTag()
-        }
-    }
-
-    private fun MutableMap<String, String>.appendToKey(key: String, value: String) {
-        this[key] = this[key]?.let { "$it; $value" } ?: value
+    private fun getStylesheets(book: Book): List<StyleResource> {
+        Log.d(TAG, "Extracting stylesheet resources")
+        return book.resources.getAll()
+            .filter { it.mediaType == MediatypeService.CSS }
+            .map { StyleResource(it.href, it.mediaType.name) }
+            .also { stylesheets -> Log.d(TAG, "Found ${stylesheets.size} stylesheet resources") }
     }
 }
 
-// Data Classes
 data class ParsedBook(
     val title: String,
     val author: String,
     val language: String,
     val chapters: List<ParsedChapter>,
-    val content: Map<String, String>,
-    val metadata: Map<String, String>,
+    val contentMap: Map<String, String>,
+    val metadata: EpubParser.EpubMetadata,
     val mediaOverlays: List<MediaOverlay>,
     val fonts: List<FontResource>,
     val stylesheets: List<StyleResource>,
@@ -497,10 +248,10 @@ data class ParsedBook(
 
 data class ParsedChapter(
     val title: String,
-    var content: String,
-    var path: String,
-    val subChapters: MutableList<ParsedChapter>,
-    val depth: Int
+    val contentPath: String,
+    val content: String,
+    val depth: Int,
+    val subChapters: MutableList<ParsedChapter>
 )
 
 data class MediaOverlay(
@@ -509,6 +260,14 @@ data class MediaOverlay(
     val clipBegin: String
 )
 
-data class FontResource(val path: String, val mimeType: String)
-data class StyleResource(val path: String, val mimeType: String)
-data class Quadruple<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
+data class FontResource(
+    val path: String,
+    val mimeType: String
+)
+
+data class StyleResource(
+    val path: String,
+    val mimeType: String
+)
+
+class EpubParseException(message: String, cause: Throwable) : Exception(message, cause)

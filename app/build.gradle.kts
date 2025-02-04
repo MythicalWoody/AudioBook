@@ -85,7 +85,11 @@ dependencies {
     implementation(libs.navigation.compose)
 
     // EPUB and XML Parsing
-    implementation(libs.kxml2)  // Keep only kxml2 for XML parsing
+    implementation(libs.epublib.core) {
+        exclude(group = "org.slf4j", module = "slf4j-simple")
+        exclude(group = "xmlpull", module = "xmlpull")
+    }
+    implementation(libs.kxml2)  // Required for epublib
     implementation(libs.json)
     implementation(libs.jsoup)
     implementation(libs.slf4j.android)
