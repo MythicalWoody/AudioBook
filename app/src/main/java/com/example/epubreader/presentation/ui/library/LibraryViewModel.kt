@@ -8,6 +8,7 @@ import com.example.epubreader.domain.usecase.interfaces.SearchBooksUseCase
 import android.content.Context
 import android.net.Uri
 import com.example.epubreader.domain.model.ImportBookParams
+import com.example.epubreader.domain.usecase.interfaces.DeleteBookUseCase
 import com.example.epubreader.domain.usecase.interfaces.ImportBookUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,6 +28,7 @@ open class LibraryViewModel @Inject constructor(
     private val getAllBooksUseCase: GetAllBooksUseCase,
     private val searchBooksUseCase: SearchBooksUseCase,
     private val importBookUseCase: ImportBookUseCase,
+    private val deleteBookUseCase: DeleteBookUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<LibraryUiState>(LibraryUiState.Loading)
@@ -79,6 +81,17 @@ open class LibraryViewModel @Inject constructor(
                 loadBooks() // Refresh the book list after import
             } catch (e: Exception) {
                 _uiState.value = LibraryUiState.Error("Failed to import EPUB: ${e.message}")
+            }
+        }
+    }
+
+    fun deleteBook(bookId: String) {
+        viewModelScope.launch {
+            try {
+                deleteBookUseCase.execute(bookId)
+                loadBooks() // Refresh the book list after deletion
+            } catch (e: Exception) {
+                _uiState.value = LibraryUiState.Error("Failed to delete book: ${e.message}")
             }
         }
     }

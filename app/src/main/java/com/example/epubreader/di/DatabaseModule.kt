@@ -28,8 +28,11 @@ object DatabaseModule {
         return Room.databaseBuilder(
             context,
             EpubReaderDatabase::class.java,
-            "epub_reader_database"
-        ).build()
+            "epub_reader_db"
+        )
+            .addMigrations(EpubReaderDatabase.MIGRATION_1_2)
+            .fallbackToDestructiveMigration()
+            .build()
     }
 
     @Provides

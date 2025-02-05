@@ -21,7 +21,7 @@ import com.example.epubreader.data.db.entity.*
         HighlightEntity::class,
         NoteEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = true
 )
 @TypeConverters(DateConverter::class, ReadingPreferencesConverter::class)
@@ -34,6 +34,12 @@ abstract class EpubReaderDatabase : RoomDatabase() {
     abstract fun getNoteDao(): NoteDao
 
     companion object {
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE books ADD COLUMN coverImage BLOB")
+            }
+        }
+
         @Volatile
         private var INSTANCE: EpubReaderDatabase? = null
 
@@ -44,6 +50,8 @@ abstract class EpubReaderDatabase : RoomDatabase() {
                     EpubReaderDatabase::class.java,
                     "epub_reader_db"
                 )
+                    .addMigrations(MIGRATION_1_2)
+                    .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance
                 instance

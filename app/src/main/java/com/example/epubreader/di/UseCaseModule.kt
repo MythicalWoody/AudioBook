@@ -2,6 +2,7 @@ package com.example.epubreader.di
 
 import com.example.epubreader.domain.repository.BookRepository
 import com.example.epubreader.domain.usecase.implementation.AddBookmarkUseCaseImpl
+import com.example.epubreader.domain.usecase.implementation.DeleteBookUseCaseImpl
 import com.example.epubreader.domain.usecase.implementation.GetAllBooksUseCaseImpl
 import com.example.epubreader.domain.usecase.implementation.GetBookmarksUseCaseImpl
 import com.example.epubreader.domain.usecase.implementation.GetReadingStatisticsUseCaseImpl
@@ -12,6 +13,7 @@ import com.example.epubreader.domain.usecase.implementation.SearchBooksUseCaseIm
 import com.example.epubreader.domain.usecase.implementation.TextToSpeechUseCaseImpl
 import com.example.epubreader.domain.usecase.implementation.UpdateReadingPositionUseCaseImpl
 import com.example.epubreader.domain.usecase.interfaces.AddBookmarkUseCase
+import com.example.epubreader.domain.usecase.interfaces.DeleteBookUseCase
 import com.example.epubreader.domain.usecase.interfaces.GetAllBooksUseCase
 import com.example.epubreader.domain.usecase.interfaces.GetBookmarksUseCase
 import com.example.epubreader.domain.usecase.interfaces.GetReadingStatisticsUseCase
@@ -95,4 +97,10 @@ object UseCaseModule {
     @Provides
     @Named("recentBooksLimit")
     fun provideRecentBooksLimit(): Int = 10
+
+    @Provides
+    @Singleton
+    fun provideDeleteBookUseCase(
+        bookRepository: BookRepository
+    ): DeleteBookUseCase = DeleteBookUseCaseImpl(bookRepository)
 }

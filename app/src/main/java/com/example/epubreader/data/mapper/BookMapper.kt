@@ -22,12 +22,10 @@ class BookMapper @Inject constructor() {
                 chapterIndex = bookEntity.lastReadChapterIndex,
                 textPosition = bookEntity.lastReadPosition
             ),
-            readingPreferences = ReadingPreferences(
-                theme = Theme.DARK,
-                textAlignment = TextAlignment.JUSTIFY
-            ),
+            readingPreferences = bookEntity.readingPreferences,
             dateAdded = Date(bookEntity.dateAdded),
-            lastReadDate = Date(bookEntity.lastReadDate)
+            lastReadDate = Date(bookEntity.lastReadDate),
+            coverImage = bookEntity.coverImage
         )
     }
 
