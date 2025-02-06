@@ -81,7 +81,8 @@ class BookRepositoryImpl @Inject constructor(
                 BookEntity(
                     id = bookId,
                     title = book.title,
-                    filePath = uri.toString()
+                    filePath = uri.toString(),
+                    coverImage = book.coverImage
                 )
             )
             Log.d("BookRepository5", "Saved book metadata to database")

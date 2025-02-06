@@ -337,28 +337,24 @@ private fun BookCard(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(120.dp)
+                        .height(200.dp)
                 ) {
                     if (book.coverImage != null) {
-                        Image(
-                            bitmap = book.coverImage.toBitmap().asImageBitmap(),
-                            contentDescription = "Book cover",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
-                        )
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(MaterialTheme.colorScheme.surfaceVariant),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.book_material_icon),
-                                contentDescription = "Default book cover",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                        val bitmap = remember(book.coverImage) {
+                            BitmapFactory.decodeByteArray(book.coverImage, 0, book.coverImage.size)
                         }
+                        if (bitmap != null) {
+                            Image(
+                                bitmap = bitmap.asImageBitmap(),
+                                contentDescription = "Book cover",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.FillHeight
+                            )
+                        } else {
+                            DefaultCoverImage()
+                        }
+                    } else {
+                        DefaultCoverImage()
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
@@ -379,6 +375,22 @@ private fun BookCard(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun DefaultCoverImage() {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surfaceVariant),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            painter = painterResource(R.drawable.book_material_icon),
+            contentDescription = "Default book cover",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 

@@ -62,7 +62,8 @@ class EpubParser @Inject constructor() {
             mediaOverlays = emptyList(), // Requires custom implementation
             fonts = getFonts(book),
             stylesheets = getStylesheets(book),
-            isEpub3 = isEpub3(book)
+            isEpub3 = isEpub3(book),
+            coverImage = extractCoverImage(book)
         ).also { parsedBook ->
             Log.d(TAG, "Book conversion completed - Title: ${parsedBook.title}, Author: ${parsedBook.author}, Chapters: ${parsedBook.chapters.size}")
         }
@@ -231,6 +232,23 @@ class EpubParser @Inject constructor() {
             .map { StyleResource(it.href, it.mediaType.name) }
             .also { stylesheets -> Log.d(TAG, "Found ${stylesheets.size} stylesheet resources") }
     }
+
+    private fun extractCoverImage(book: Book): ByteArray? {
+        Log.d(TAG, "Attempting to extract cover image")
+        return try {
+            val coverResource = book.coverImage
+            if (coverResource != null) {
+                Log.d(TAG, "Cover image found with media type: ${coverResource.mediaType}")
+                coverResource.data
+            } else {
+                Log.w(TAG, "No cover image found in the EPUB book")
+                null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error extracting cover image: ${e.message}")
+            null
+        }
+    }
 }
 
 data class ParsedBook(
@@ -243,7 +261,8 @@ data class ParsedBook(
     val mediaOverlays: List<MediaOverlay>,
     val fonts: List<FontResource>,
     val stylesheets: List<StyleResource>,
-    val isEpub3: Boolean
+    val isEpub3: Boolean,
+    val coverImage: ByteArray?
 )
 
 data class ParsedChapter(
